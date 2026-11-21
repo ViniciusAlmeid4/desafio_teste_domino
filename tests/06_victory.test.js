@@ -1,45 +1,107 @@
 /**
  * Suíte 6: Vitória da Partida
  *
- * ⚠️  ARQUIVO PARA O(A) PARCEIRO(A) COMPLETAR
- *
- * Casos de teste a implementar:
- *
- *  6.1 — Deve continuar a partida enquanto nenhum jogador atingir 10 pontos
- *         Cenário: Jogador vai de 7 para 9 pontos (ganha rodada com +2 de carroça).
- *         Esperado: `game.isOver` é false; `game.matchScore[player]` é 9.
- *
- *  6.2 — Deve finalizar a partida ao atingir exatamente 10 pontos
- *         Cenário: Jogador com 8 pontos faz batida de carroça (+2 pontos).
- *         Esperado: `game.isOver` é true; `game.matchWinner` é o índice do jogador;
- *                   `game.matchScore[player]` é 10.
- *
- *  6.3 — Deve finalizar a partida ao ultrapassar 10 pontos (≥ 10)
- *         Cenário: Jogador com 9 pontos faz batida de carroça em 2 pontas (+4 pontos).
- *         Esperado: `game.isOver` é true; `game.matchScore[player]` é 13.
- *
- *  6.4 — Não deve encerrar a partida com 9 pontos
- *         Cenário: Jogador vai de 8 para 9 pontos (batida simples +1).
- *         Esperado: `game.isOver` é false.
- *
- * COMO COMEÇAR:
- *   1. Importe `Game`, `Tile` e qualquer outra necessidade de '../src/domino';
- *   2. Use `game._addScore(playerIndex, pts)` para simular pontuações já acumuladas;
- *   3. Chame `game.playTile(tile, side)` para simular a última jogada e verifique
- *      o retorno `{ points, roundOver, matchOver }`.
- *
- * DICA: Você pode inicializar o `game.matchScore` diretamente para simular
- *       um placar já parcialmente acumulado:
- *         game.matchScore = [8, 0];
- *       e então acionar a batida final via `game.playTile(...)`.
+ * A partida termina quando um jogador chega a 10 pontos ou mais.
  */
 
-const { Game, Tile, Board } = require('../src/domino');
+const { Tile, Board, Game } = require("../src/domino");
 
-describe('6. Vitória da Partida', () => {
-  // TODO: implementar os casos 6.1 a 6.4 descritos acima
-  it.todo('Deve continuar a partida enquanto nenhum jogador atingir 10 pontos');
-  it.todo('Deve finalizar a partida ao atingir exatamente 10 pontos');
-  it.todo('Deve finalizar a partida ao ultrapassar 10 pontos');
-  it.todo('Não deve encerrar a partida com 9 pontos');
+function montarMesa(primeira, ...seguintes) {
+  const board = new Board();
+  board.placeFirst(primeira);
+  seguintes.forEach((peca) => board.place(peca, "right"));
+  return board;
+}
+
+function jogoComPlacar(placar, board, ultimaPeca) {
+  const game = new Game();
+  game.matchScore = placar;
+  game.board = board;
+  game.hands = [[ultimaPeca], [new Tile(0, 0), new Tile(1, 1)]];
+  game.currentPlayer = 0;
+  return game;
+}
+
+describe("6. Vitória da Partida", () => {
+  it("Deve continuar a partida e iniciar nova rodada enquanto o placar for menor que 10", () => {
+    const game = jogoComPlacar(
+      [7, 0],
+      montarMesa(new Tile(3, 1)),
+      new Tile(3, 3),
+    );
+
+    const resultado = game.playTile(new Tile(3, 3), "left");
+
+    expect(resultado).toEqual({ points: 2, roundOver: true, matchOver: false });
+    expect(game.matchScore).toEqual([9, 0]);
+    expect(game.isOver).toBe(false);
+
+    game.startRound();
+
+    const pecasNasMaos = game.hands[0].length + game.hands[1].length;
+    const totalDePecas =
+      pecasNasMaos + game.board.chain.length + game.graveyard.length;
+
+    expect(pecasNasMaos).toBe(11);
+    expect(game.board.chain).toHaveLength(1);
+    expect(game.graveyard).toHaveLength(16);
+    expect(totalDePecas).toBe(28);
+    expect(game.matchScore).toEqual([9, 0]);
+  });
+
+  it("Deve finalizar a partida ao atingir exatamente 10 pontos", () => {
+    const game = jogoComPlacar(
+      [8, 0],
+      montarMesa(new Tile(3, 1)),
+      new Tile(3, 3),
+    );
+
+    const resultado = game.playTile(new Tile(3, 3), "left");
+
+    expect(resultado.matchOver).toBe(true);
+    expect(game.matchScore).toEqual([10, 0]);
+    expect(game.isOver).toBe(true);
+    expect(game.matchWinner).toBe(0);
+  });
+
+  it("Deve finalizar a partida ao ultrapassar 10 pontos", () => {
+    const mesa = montarMesa(new Tile(4, 1), new Tile(1, 2), new Tile(2, 4));
+    const game = jogoComPlacar([9, 0], mesa, new Tile(4, 4));
+
+    game.playTile(new Tile(4, 4), "right");
+
+    expect(game.matchScore).toEqual([13, 0]);
+    expect(game.isOver).toBe(true);
+    expect(game.matchWinner).toBe(0);
+  });
+
+  it("Não deve encerrar a partida com 9 pontos", () => {
+    const game = jogoComPlacar(
+      [8, 0],
+      montarMesa(new Tile(3, 6)),
+      new Tile(3, 1),
+    );
+
+    const resultado = game.playTile(new Tile(3, 1), "left");
+
+    expect(resultado.points).toBe(1);
+    expect(game.matchScore).toEqual([9, 0]);
+    expect(game.isOver).toBe(false);
+    expect(game.matchWinner).toBe(-1);
+  });
+
+  it("Deve finalizar a partida quando o ponto da vitória vem de um jogo fechado", () => {
+    const game = new Game();
+    game.matchScore = [0, 9];
+    game.board = montarMesa(new Tile(6, 2));
+    game.hands = [[new Tile(4, 5)], [new Tile(1, 3)]];
+    game.graveyard = [];
+
+    game.passTurn();
+    const resultado = game.passTurn();
+
+    expect(resultado).toEqual({ closed: true, matchOver: true });
+    expect(game.matchScore).toEqual([0, 10]);
+    expect(game.matchWinner).toBe(1);
+  });
 });
