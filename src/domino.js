@@ -130,7 +130,7 @@ function dealTiles(tiles) {
 function determineStartingPlayer(hands) {
   // 1. Procura o duplo-6
   for (let i = 0; i < hands.length; i++) {
-    const double6 = hands[i].find(t => t.left === 6 && t.right === 6);
+    const double6 = hands[i].find((t) => t.left === 6 && t.right === 6);
     if (double6) return { playerIndex: i, startTile: double6 };
   }
 
@@ -140,7 +140,7 @@ function determineStartingPlayer(hands) {
   let bestDoubleTile = null;
 
   for (let i = 0; i < hands.length; i++) {
-    const doubles = hands[i].filter(t => t.isDouble());
+    const doubles = hands[i].filter((t) => t.isDouble());
     for (const t of doubles) {
       if (t.left > bestDoubleValue) {
         bestDoubleValue = t.left;
@@ -231,20 +231,20 @@ class Board {
       return;
     }
 
-    if (side === 'left') {
+    if (side === "left") {
       if (!tile.hasSide(this.leftEnd)) {
         throw new Error(
-          `Jogada inválida: ${tile} não possui lado ${this.leftEnd} (extremidade esquerda).`
+          `Jogada inválida: ${tile} não possui lado ${this.leftEnd} (extremidade esquerda).`,
         );
       }
       // O lado que casa fica "para dentro"; o outro lado vira a nova extremidade
       const oriented = tile.orientedLeft(this.leftEnd);
       this.chain.unshift(new Tile(oriented.left, oriented.right));
       this.leftEnd = oriented.right; // o lado livre agora é o direito da peça virada
-    } else if (side === 'right') {
+    } else if (side === "right") {
       if (!tile.hasSide(this.rightEnd)) {
         throw new Error(
-          `Jogada inválida: ${tile} não possui lado ${this.rightEnd} (extremidade direita).`
+          `Jogada inválida: ${tile} não possui lado ${this.rightEnd} (extremidade direita).`,
         );
       }
       const oriented = tile.orientedRight(this.rightEnd);
@@ -286,13 +286,14 @@ function classifyWin(lastTile, board) {
   const twoEnds = left !== right && fitsLeft && fitsRight;
 
   // Caso especial: mesa com pontas iguais e carroça
-  const twoEndsSameDouble = left === right && isDouble && lastTile.hasSide(left);
+  const twoEndsSameDouble =
+    left === right && isDouble && lastTile.hasSide(left);
 
   if (twoEndsSameDouble) return 4; // carroça em duas pontas iguais
   if (twoEnds && isDouble) return 4; // carroça em duas pontas distintas
-  if (twoEnds) return 3;             // simples em duas pontas
-  if (isDouble) return 2;            // carroça em uma ponta
-  return 1;                          // simples em uma ponta
+  if (twoEnds) return 3; // simples em duas pontas
+  if (isDouble) return 2; // carroça em uma ponta
+  return 1; // simples em uma ponta
 }
 
 /**
@@ -303,7 +304,7 @@ function classifyWin(lastTile, board) {
  * @returns {{ winnerIndex: number, scores: number[] }}
  */
 function resolveClosedGame(hands) {
-  const scores = hands.map(hand => hand.reduce((acc, t) => acc + t.sum(), 0));
+  const scores = hands.map((hand) => hand.reduce((acc, t) => acc + t.sum(), 0));
   if (scores[0] < scores[1]) return { winnerIndex: 0, scores };
   if (scores[1] < scores[0]) return { winnerIndex: 1, scores };
   return { winnerIndex: -1, scores }; // empate
@@ -352,7 +353,7 @@ class Game {
 
     // Remove a peça inicial da mão do jogador e joga na mesa
     const tileIdx = this.hands[playerIndex].findIndex(
-      t => t.left === startTile.left && t.right === startTile.right
+      (t) => t.left === startTile.left && t.right === startTile.right,
     );
     this.hands[playerIndex].splice(tileIdx, 1);
     this.board.placeFirst(startTile);
@@ -369,7 +370,9 @@ class Game {
     const hand = this.hands[pi];
 
     // Valida que a peça está na mão do jogador
-    const tileIdx = hand.findIndex(t => t.left === tile.left && t.right === tile.right);
+    const tileIdx = hand.findIndex(
+      (t) => t.left === tile.left && t.right === tile.right,
+    );
     if (tileIdx === -1) {
       throw new Error(`O jogador ${pi} não possui a peça ${tile} em sua mão.`);
     }
@@ -404,11 +407,35 @@ class Game {
     return tile;
   }
 
+  hasPlayableTile() {
+    return this.hands[this.currentPlayer].some((t) => this.board.canPlace(t));
+  }
+
+  // Retorna as peças compradas (vazio se o jogador já tinha jogada).
+  drawUntilPlayable() {
+    const drawn = [];
+    while (!this.hasPlayableTile() && this.graveyard.length > 0) {
+      drawn.push(this.drawFromGraveyard());
+    }
+    return drawn;
+  }
+
   /**
    * Passa a vez do jogador atual (incrementa passes consecutivos).
    * @returns {{ closed: boolean, matchOver: boolean }}
    */
   passTurn() {
+    if (this.hasPlayableTile()) {
+      throw new Error(
+        `O jogador ${this.currentPlayer} possui jogada e não pode passar a vez.`,
+      );
+    }
+    if (this.graveyard.length > 0) {
+      throw new Error(
+        "Ainda há peças no cemitério: o jogador deve comprar antes de passar.",
+      );
+    }
+
     this.consecutivePasses++;
     if (this.consecutivePasses >= 2) {
       // Jogo fechado
