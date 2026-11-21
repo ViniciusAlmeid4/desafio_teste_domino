@@ -271,29 +271,21 @@ class Board {
 /**
  * Classifica o tipo de batida e retorna os pontos ganhos.
  *
- * @param {Tile}  lastTile  - A última peça baixada
- * @param {Board} board     - A mesa após a peça ser encaixada
+ * @param {Tile} lastTile - A última peça baixada
+ * @param {{ left: number, right: number }} ends - Pontas da mesa antes da jogada
  * @returns {number} Pontos (1, 2, 3 ou 4)
  */
-function classifyWin(lastTile, board) {
-  const { left, right } = board.getEnds();
-  const isDouble = lastTile.isDouble();
+function classifyWin(lastTile, ends) {
+  const { left, right } = ends;
 
-  // Batida em duas pontas: a peça encaixa em ambas as extremidades
-  // simultaneamente (pontas iguais à left e right do tile)
-  const fitsLeft = lastTile.hasSide(left);
-  const fitsRight = lastTile.hasSide(right);
-  const twoEnds = left !== right && fitsLeft && fitsRight;
+  if (lastTile.isDouble()) {
+    const twoEnds = left === right && lastTile.left === left;
+    return twoEnds ? 4 : 2;
+  }
 
-  // Caso especial: mesa com pontas iguais e carroça
-  const twoEndsSameDouble =
-    left === right && isDouble && lastTile.hasSide(left);
-
-  if (twoEndsSameDouble) return 4; // carroça em duas pontas iguais
-  if (twoEnds && isDouble) return 4; // carroça em duas pontas distintas
-  if (twoEnds) return 3; // simples em duas pontas
-  if (isDouble) return 2; // carroça em uma ponta
-  return 1; // simples em uma ponta
+  const twoEnds =
+    left !== right && lastTile.hasSide(left) && lastTile.hasSide(right);
+  return twoEnds ? 3 : 1;
 }
 
 /**
@@ -377,6 +369,7 @@ class Game {
       throw new Error(`O jogador ${pi} não possui a peça ${tile} em sua mão.`);
     }
 
+    const endsBefore = this.board.getEnds();
     // Encaixa na mesa (pode lançar erro se inválido)
     this.board.place(tile, side);
 
@@ -386,7 +379,7 @@ class Game {
 
     // Verifica batida
     if (hand.length === 0) {
-      const pts = classifyWin(tile, this.board);
+      const pts = classifyWin(tile, endsBefore);
       this._addScore(pi, pts);
       return { points: pts, roundOver: true, matchOver: this.isOver };
     }
